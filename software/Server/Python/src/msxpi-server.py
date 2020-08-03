@@ -90,14 +90,6 @@ def tick_sclk():
     GPIO.output(sclkPin, GPIO.LOW)
     #time.sleep(SPI_SCLK_LOW_TIME)
 
-def send_byte_sec(byte_out):
-    rc = RESEND
-    while rc != ENDTRANSFER:
-        send_byte(byte_out)
-        send_byte(byte_out^CRC)
-        rc =receive_byte()
-
-
 def send_byte(byte_out):
 
     GPIO.output(misoPin, GPIO.HIGH)
@@ -118,20 +110,6 @@ def send_byte(byte_out):
     GPIO.output(rdyPin, GPIO.HIGH)
     GPIO.output(misoPin, GPIO.LOW)
 
-def receive_byte_sec():
-    rc = RESEND
-    while rc == RESEND:
-        b1 = receive_byte()
-        b2 = receive_byte()
-
-        if b1^CRC == b2:
-            rc = ENDTRANSFER
-            send_byte(ENDTRANSFER)
-        else:
-            send_byte(RESEND)
-
-    return b1
-
 def receive_byte():
     byte_in = 0
 
@@ -151,6 +129,11 @@ def receive_byte():
     GPIO.output(rdyPin, GPIO.HIGH)
     GPIO.output(misoPin, GPIO.LOW)
 
+    return byte_in
+
+def piexchangebyte(byte_out):
+    byte_in = receive_byte()
+    send_byte(byte_out)
     return byte_in
 
 def sendstdmsg(message):
