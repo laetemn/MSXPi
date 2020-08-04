@@ -93,8 +93,8 @@
 #define miso  12
 #define rdy   25
 
-#define SPI_SCLK_LOW_TIME 0
-#define SPI_SCLK_HIGH_TIME 0
+#define SPI_SCLK_LOW_TIME 0.001
+#define SPI_SCLK_HIGH_TIME 0.001
 #define HIGH 1
 #define LOW 0
 #define command 1
@@ -194,9 +194,9 @@
 #define __SUCCESS   0x00
 
 struct transferStruct {
-    unsigned char rc;
+    uint8_t rc;
     int  datasize;
-    unsigned char *data;
+    uint8_t *data;
 };
 
 typedef struct {
@@ -378,6 +378,9 @@ uint8_t receive_byte() {
     uint8_t bit;
     unsigned rdbit;
 
+    while(!gpioRead(cs)) 
+        {}
+
     gpioWrite(miso,HIGH);
     while(gpioRead(cs)) 
         {}
@@ -386,14 +389,14 @@ uint8_t receive_byte() {
 
     for (bit = 0x80; bit; bit >>= 1) {
         gpioWrite(sclk,HIGH);
-        gpioDelay(SPI_SCLK_HIGH_TIME);
+        //gpioDelay(SPI_SCLK_HIGH_TIME);
         
         rdbit = gpioRead(mosi);
         if (rdbit == HIGH)
             byte_in |= bit;
         
         gpioWrite(sclk,LOW);
-        gpioDelay(SPI_SCLK_LOW_TIME);
+        //gpioDelay(SPI_SCLK_LOW_TIME);
     }
 
     // tick rdyPin once to flag to MSXPi that transfer is completed
@@ -402,13 +405,14 @@ uint8_t receive_byte() {
     gpioWrite(rdy,HIGH);
     gpioWrite(miso,LOW);
 
-    printf("%x\n",byte_in);
-
     return byte_in;
 }
 
 uint8_t send_byte(uint8_t byte_out) {
     uint8_t bit;
+
+    while(!gpioRead(cs)) 
+        {}
 
     gpioWrite(miso,HIGH);
     while(gpioRead(cs)) 
@@ -419,9 +423,9 @@ uint8_t send_byte(uint8_t byte_out) {
     for (bit = 0x80; bit; bit >>= 1) {
         write_MISO((byte_out & bit) ? HIGH : LOW);
         gpioWrite(sclk,HIGH);
-        gpioDelay(SPI_SCLK_HIGH_TIME);
+        //gpioDelay(SPI_SCLK_HIGH_TIME);
         gpioWrite(sclk,LOW);
-        gpioDelay(SPI_SCLK_LOW_TIME);
+        //gpioDelay(SPI_SCLK_LOW_TIME);
     }
     
     // tick rdyPin once to flag to MSXPi that transfer is completed
@@ -516,32 +520,31 @@ uint8_t senddatablock(struct transferStruct *dataInfo) {
 
 struct transferStruct *recvdatablock() {
 
-    int bytecounter,blocksize,lsb,msb = 0;
-    uint8_t byte_in;
+    int bytecounter = 0;
+    int blocksize;
+    uint8_t dsL,dsM,byte_in;
     uint8_t crc = 0;
     
     printf("recvdatablock:starting\n");
     // read block size
-    lsb = receive_byte();
-    msb = receive_byte();
+    dsL = receive_byte();printf("%x",dsL);
+    dsM = receive_byte();printf("%x",dsM);
 
-    blocksize = lsb + 256 * msb;   
-    
-    printf("recvdatablock:blocksize = %i\n",blocksize);
+    blocksize = (dsL + (256 * dsM));
     
     struct transferStruct *dataInfo = newtransferStruct(blocksize);
+    //if (dataInfo == NULL) printf("Error allocating memory for dataIfo\n"); else printf("malloc successul\n");
 
     printf("recvdatablock:blocksize = %i\n",blocksize);
     
-    //while(dataInfo.datasize>bytecounter && byte_in>=0) {
     while(blocksize>0) {       
         byte_in = receive_byte();
-        *(dataInfo->data + bytecounter) = byte_in;
+        *(dataInfo->data+bytecounter) = byte_in;
         crc ^= byte_in;
         bytecounter++;
         blocksize--;
     }
-    
+
     printf("senddatablock: received %s\n",dataInfo->data);
     byte_in = receive_byte();
         
@@ -556,6 +559,7 @@ struct transferStruct *recvdatablock() {
     
     send_byte(dataInfo->rc);
     printf("recvdatablock:exiting with rc = %x\n",dataInfo->rc);
+
     return dataInfo;
 }
 

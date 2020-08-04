@@ -92,6 +92,9 @@ def tick_sclk():
 
 def send_byte(byte_out):
 
+    while(not GPIO.input(csPin)):
+        pass
+
     GPIO.output(misoPin, GPIO.HIGH)
     while(GPIO.input(csPin)):
         pass
@@ -113,6 +116,9 @@ def send_byte(byte_out):
 def receive_byte():
     byte_in = 0
 
+    while(not GPIO.input(csPin)):
+        pass
+        
     GPIO.output(misoPin, GPIO.HIGH)
     while(GPIO.input(csPin)):
         pass
